@@ -297,7 +297,6 @@ class StackViewLayout extends React.Component<Props, State> {
             immediate: true,
           })
         );
-        navigation.dispatch(StackActions.completeTransition());
       }
     };
 

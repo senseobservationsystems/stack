@@ -64,6 +64,8 @@ class Transitioner extends React.Component<Props, State> {
   private isTransitionRunning: boolean;
   private queuedTransition: { prevProps: Props } | null;
 
+  private pendingTransitionResolver: (() => void) | null;
+
   constructor(props: Props) {
     super(props);
 
@@ -105,6 +107,7 @@ class Transitioner extends React.Component<Props, State> {
     this.isComponentMounted = false;
     this.isTransitionRunning = false;
     this.queuedTransition = null;
+    this.pendingTransitionResolver = null;
   }
 
   componentDidMount() {
@@ -136,10 +139,6 @@ class Transitioner extends React.Component<Props, State> {
       nextProps.descriptors
     );
 
-    if (!nextProps.navigation.state.isTransitioning) {
-      nextScenes = filterStale(nextScenes);
-    }
-
     // Update nextScenes when we change screenProps
     // This is a workaround for https://github.com/react-navigation/react-navigation/issues/4271
     if (nextProps.screenProps !== this.props.screenProps) {
@@ -154,6 +153,9 @@ class Transitioner extends React.Component<Props, State> {
   };
 
   private startTransition(props: Props, nextProps: Props) {
+    if (this.pendingTransitionResolver) {
+      throw new Error('Starting a transition while another one is happening!');
+    }
     const indexHasChanged =
       props.navigation.state.index !== nextProps.navigation.state.index;
     let nextScenes = this.computeScenes(props, nextProps);
@@ -174,6 +176,12 @@ class Transitioner extends React.Component<Props, State> {
       return;
     }
 
+    const transitionComplete: Promise<void> = new Promise((resolve, reject) => {
+      this.pendingTransitionResolver = resolve;
+    });
+
+    nextProps.navigation.waitForTransition(transitionComplete);
+
     const nextState = {
       ...this.state,
       scenes: nextScenes,
@@ -188,13 +196,12 @@ class Transitioner extends React.Component<Props, State> {
     // compute transitionProps
     this.prevTransitionProps = this.transitionProps;
     this.transitionProps = buildTransitionProps(nextProps, nextState);
-    let { isTransitioning } = this.transitionProps.navigation.state;
 
     // if the state isn't transitioning that is meant to signal that we should
     // transition immediately to the new index. if the index hasn't changed, do
     // the same thing here. it's not clear to me why we ever start a transition
     // when the index hasn't changed, this requires further investigation.
-    if (!isTransitioning || !indexHasChanged) {
+    if (!indexHasChanged) {
       this.setState(nextState, async () => {
         if (nextProps.onTransitionStart) {
           const result = nextProps.onTransitionStart(
@@ -211,7 +218,7 @@ class Transitioner extends React.Component<Props, State> {
         // end the transition
         this.handleTransitionEnd();
       });
-    } else if (isTransitioning) {
+    } else {
       this.isTransitionRunning = true;
       this.setState(nextState, async () => {
         if (nextProps.onTransitionStart) {
@@ -314,6 +321,10 @@ class Transitioner extends React.Component<Props, State> {
     this.transitionProps = buildTransitionProps(this.props, nextState);
 
     this.setState(nextState, async () => {
+      if (this.pendingTransitionResolver) {
+        this.pendingTransitionResolver();
+        this.pendingTransitionResolver = null;
+      }
       if (this.props.onTransitionEnd) {
         const result = this.props.onTransitionEnd(
           this.transitionProps,

@@ -1,6 +1,5 @@
 import * as React from 'react';
 
-import { StackActions } from '@react-navigation/core';
 import StackViewLayout from './StackViewLayout';
 import Transitioner from '../Transitioner';
 import TransitionConfigs from './StackViewTransitionConfigs';
@@ -50,17 +49,6 @@ class StackView extends React.Component<Props> {
         onTransitionEnd={this.handleTransitionEnd}
       />
     );
-  }
-
-  componentDidMount() {
-    const { navigation } = this.props;
-    if (navigation.state.isTransitioning) {
-      navigation.dispatch(
-        StackActions.completeTransition({
-          key: navigation.state.key,
-        })
-      );
-    }
   }
 
   private configureTransition = (
@@ -119,22 +107,9 @@ class StackView extends React.Component<Props> {
     lastTransition?: { scene: Scene; navigation: NavigationProp }
   ) => {
     const {
-      navigationConfig,
-      navigation,
       // @ts-ignore
       onTransitionEnd = navigationConfig.onTransitionEnd,
     } = this.props;
-    const transitionDestKey = transition.scene.route.key;
-    const isCurrentKey =
-      navigation.state.routes[navigation.state.index].key === transitionDestKey;
-    if (transition.navigation.state.isTransitioning && isCurrentKey) {
-      navigation.dispatch(
-        StackActions.completeTransition({
-          key: navigation.state.key,
-          toChildKey: transitionDestKey,
-        })
-      );
-    }
     onTransitionEnd && onTransitionEnd(transition, lastTransition);
   };
 }

@@ -43,6 +43,7 @@ export type NavigationProp<RouteName = string, Params = object> = {
   getParam(): Params;
   dispatch(action: { type: string }): void;
   dangerouslyGetParent(): NavigationProp | undefined;
+  waitForTransition: (transitionPromise: Promise<void>) => void;
 };
 
 export type HeaderMode = 'float' | 'screen';
